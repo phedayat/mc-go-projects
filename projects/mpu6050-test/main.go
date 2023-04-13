@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 	"machine"
-
 	"tinygo.org/x/drivers/mpu6050"
 )
 
@@ -30,13 +29,16 @@ func main(){
 	fmt.Println("MPU6050 found")
 
 	for {
-		ax, ay, az := sensor.ReadAcceleration() // get accel vector
-		rx, ry, rz := sensor.ReadRotation() // get rotation vector
+		ax, ay, az := sensor.ReadAcceleration() // get accel coords
+		rx, ry, rz := sensor.ReadRotation() // get rotation coords
+
+		av := Vector{float64(ax), float64(ay), float64(az)} // create accel vector
+		rv := Vector{float64(rx), float64(ry), float64(rz)} // create rotation vector
 
 		// Create the formatted string for printing
 		s := fmt.Sprintf(
-			"Acceleration: (%d, %d, %d), Rotation: (%d, %d, %d)", 
-			ax, ay, az, rx, ry, rz,
+			"Acceleration: %s (Length: %f), Rotation: %s (Length: %f)", 
+			av.PrettyPrint(), av.Length(), rv.PrettyPrint(), rv.Length(),
 		)
 		fmt.Println(s)
 
