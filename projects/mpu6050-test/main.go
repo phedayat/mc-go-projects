@@ -1,11 +1,19 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"time"
 	"machine"
 	"tinygo.org/x/drivers/mpu6050"
 )
+
+func check(err error, stage string){
+	if err != nil {
+		fmt.Println(stage, "--->", err.Error())
+		os.Exit(1)
+	}
+}
 
 func main(){
 	// First we get the SDA, SCL pins
@@ -13,12 +21,14 @@ func main(){
 	scl := machine.GPIO1
 
 	// Then we configure the I2C0 constant
-	machine.I2C0.Configure(machine.I2CConfig{SDA: sda, SCL: scl})
-	
+	err := machine.I2C0.Configure(machine.I2CConfig{SDA: sda, SCL: scl})
+	check(err, "I2C0 Configuration")
+
 	// Now we can get a new instance of the MPU6050 device
 	// We pass in the I2C bus (machine.I2C0)
 	sensor := mpu6050.New(machine.I2C0)
-	sensor.Configure() // run .Configure() to prepare the device
+	err = sensor.Configure() // run .Configure() to prepare the device
+	check(err, "Sensor Configuration")
 
 	// Checks that a device is connected
 	connected := sensor.Connected()
@@ -28,21 +38,40 @@ func main(){
 	}
 	fmt.Println("MPU6050 found")
 
+	sa := int16(16384)
+	st := int16(340)
+	ot := float32(35)
 	for {
-		ax, ay, az := sensor.ReadAcceleration() // get accel coords
-		rx, ry, rz := sensor.ReadRotation() // get rotation coords
+		accel := make([]byte, 6)
+		realAccel := make([]float32, 3)
 
-		av := Vector{float64(ax), float64(ay), float64(az)} // create accel vector
-		rv := Vector{float64(rx), float64(ry), float64(rz)} // create rotation vector
+		temp := make([]byte, 2)
+		
+		machine.I2C0.ReadRegister(ADDR, uint8(0x3B), accel)
+		machine.I2C0.ReadRegister(ADDR, uint8(0x41), temp)
 
-		// Create the formatted string for printing
-		s := fmt.Sprintf(
-			"Acceleration: %s (Length: %f), Rotation: %s (Length: %f)", 
-			av.PrettyPrint(), av.Length(), rv.PrettyPrint(), rv.Length(),
-		)
-		fmt.Println(s)
+		realAccel[0] = GetReading(Btoi16(accel[0], accel[1]), sa)
+		realAccel[1] = GetReading(Btoi16(accel[2], accel[3]), sa)
+		realAccel[2] = GetReading(Btoi16(accel[4], accel[5]), sa)
 
-		// Sleep
-		time.Sleep(2 * time.Second)
+		realTemp := GetReading(Btoi16(temp[0], temp[1]), st) + ot
+
+
+		fmt.Println("--------------------START--------------------")
+		fmt.Println("Accel: ", realAccel )
+		fmt.Println("Temp: ", realTemp, " C")
+		fmt.Println("--------------------END--------------------")
+
+		time.Sleep(1*time.Second)
 	}
+}
+
+// FUNCTIONS FOR HANDLING READING DATA
+
+func Btoi16(b1, b2 byte) int16 {
+	return int16((uint16(b1)<<8)|uint16(b2))
+}
+
+func GetReading(i int16, s int16) float32 {
+	return float32(i) / float32(s)
 }
