@@ -6,4 +6,3 @@ fi
 cd $1
 tinygo flash -target=pico ./
 cd -
-
